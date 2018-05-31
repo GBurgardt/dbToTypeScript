@@ -1,0 +1,24 @@
+{
+  "name": "database-to-type-script",
+  "version": "0.2.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "mysql": "^2.15.0"
+  },
+  "engines": {
+    "node": "4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GBurgardt/DatabaseToTypeScript"
+  },
+  "keywords": [
+    "node"
+  ],
+  "author": "German Burgardt",
+  "license": "MIT"
+}
