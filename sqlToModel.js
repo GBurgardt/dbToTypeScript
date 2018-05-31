@@ -21,6 +21,10 @@ rl.question('Ingrese nombre de la tabla que se va a mappear: ', (answer) => {
         return elString.charAt(0).toUpperCase() + elString.slice(1);
     }
 
+    const lowerFirstLetter = (elString) => {
+        return elString.charAt(0).toLowerCase() + elString.slice(1);
+    }
+
     /**
      * Por ahora esta configurado para facutracion
      */
@@ -42,12 +46,29 @@ rl.question('Ingrese nombre de la tabla que se va a mappear: ', (answer) => {
             let consultaCreate = results[0]['Create Table'];
 
             let pseudoKeys = consultaCreate
-                        .substring(consultaCreate.indexOf('CREATE TABLE') + 13, consultaCreate.indexOf('PRIMARY KEY'))
-                        .split(/[``]/);
+                .substring(consultaCreate.indexOf('CREATE TABLE') + 13, consultaCreate.indexOf('PRIMARY KEY'))
+                .split(/[``]/);
+
+            let indicesDeObjetos = [];
 
             let keys = pseudoKeys
-                            .filter(pseudo => pseudo[0]!==' ')
-                            .filter(key => key !== '');
+                .filter(pseudo => pseudo[0] !== ' ')
+                .filter(key => key !== '')
+                .filter((key, index) => index !== 0)
+                .map(
+                    (key, index) => {
+                        if (
+                            index !== 0 && //Descarto el id del modelo
+                            key.indexOf('id') === 0 &&
+                            key[2] === key[2].toUpperCase()
+                        ) {
+                            indicesDeObjetos.push(index);
+                            return lowerFirstLetter(key.substring(2));
+                        } else {
+                            return key;
+                        }
+                    }
+                );
 
             let tipos = pseudoKeys
                             .filter(pseudo => pseudo[0]===' ')
@@ -60,20 +81,17 @@ rl.question('Ingrese nombre de la tabla que se va a mappear: ', (answer) => {
                                 return pseudoTipo.substring(1, pseudoTipo.indexOf('('))
                             })
                             .filter(key => key !== '')
-                            .map(tipo => tipo
-                                            .replace(/int|decimal/gi, 'number')
-                                            .replace('varchar', 'string')
-                                            .replace('bit', 'boolean'))
-
-
-            if (keys.length !== tipos.length) {
-                keys.shift();
-            }
+                            .map((tipo, index) => indicesDeObjetos.includes(index) ? 
+                                tipo.replace(/int|decimal|varchar|bit/gi, upperFirstLetter(keys[index]))
+                                :
+                                tipo.replace(/int|decimal/gi, 'number')
+                                    .replace('varchar', 'string')
+                                    .replace('bit', 'boolean'))
 
             jsKeys = keys
                             .map((key, i) => `${key}: ${tipos[i]}`);
 
-            generateModel(nombreTabla, jsKeys, keys, tipos);
+            generateModel(nombreTabla, jsKeys, keys, tipos, indicesDeObjetos);
 
         });
 
@@ -85,7 +103,7 @@ rl.question('Ingrese nombre de la tabla que se va a mappear: ', (answer) => {
 
 
 
-    const generateModel = (nombreTabla, jsKeys, keys, tipos) => {
+    const generateModel = (nombreTabla, jsKeys, keys, tipos, indicesDeObjetos) => {
         const nombreTablaLower = nombreTabla[0].toLowerCase() + nombreTabla.substring(1);
 
         const resultadoModelo =`
@@ -96,9 +114,9 @@ rl.question('Ingrese nombre de la tabla que se va a mappear: ', (answer) => {
             ${arrayKeysToString(jsKeys)}
         }) {
             if (${nombreTablaLower}) {
-                ${generateAssingsKeys(keys, nombreTablaLower)}
+                ${generateAssingsKeys(keys, nombreTablaLower, indicesDeObjetos)}
             } else {
-                ${generateAssingsKeysNull(keys)}
+                ${generateAssingsKeysNull(keys, indicesDeObjetos)}
             }
         }
 
@@ -121,10 +139,24 @@ rl.question('Ingrese nombre de la tabla que se va a mappear: ', (answer) => {
         return jsKeys.toString().split(',').join(';\n');
     }
 
-    const generateAssingsKeys = (keys, nombreTablaLower) => {
-        return keys.map((key, i) => `this.${key} = ${nombreTablaLower}.${key}`).toString().split(',').join(';\n');
+    const generateAssingsKeys = (keys, nombreTablaLower, indicesDeObjetos) => {
+        return keys
+                .map((key, i) => indicesDeObjetos.includes(i) ? 
+                    `this.${key} = new ${upperFirstLetter(key)}(${nombreTablaLower}.${key})`
+                    :
+                    `this.${key} = ${nombreTablaLower}.${key}`)
+                .toString()
+                .split(',')
+                .join(';\n');
     }
 
-    const generateAssingsKeysNull = (keys) => {
-        return keys.map((key, i) => `this.${key} = null`).toString().split(',').join(';\n');
+    const generateAssingsKeysNull = (keys, indicesDeObjetos) => {
+        return keys
+                .map((key, i) => indicesDeObjetos.includes(i) ? 
+                    `this.${key} = new ${upperFirstLetter(key)}()`
+                    :
+                    `this.${key} = null`)
+                .toString()
+                .split(',')
+                .join(';\n');
     }
